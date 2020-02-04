@@ -32,13 +32,16 @@ spec:
               memory: "256Mi"
               cpu: "500m"
           env:
-          - name: TEAMNAME
-            value: "team-azch"
           - name: MONGOHOST
             valueFrom:
               secretKeyRef:
                 name: mongodb
                 key: mongoHost
+          - name: MONGOUSER
+            valueFrom:
+              secretKeyRef:
+                name: mongodb
+                key: mongoUser
           ports:
           - containerPort: 8080
           volumeMounts:

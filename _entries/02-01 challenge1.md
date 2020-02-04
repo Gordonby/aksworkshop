@@ -5,7 +5,7 @@ title: Deploy Kubernetes with Azure Kubernetes Service (AKS)
 parent-id: upandrunning
 ---
 
-Azure has a managed Kubernetes service, AKS (Azure Kubernetes Service).
+Azure has a managed Kubernetes service, AKS (Azure Kubernetes Service), we'll use this to easily deploy and standup a Kubernetes cluster.
 
 ### Tasks
 
@@ -13,10 +13,16 @@ Azure has a managed Kubernetes service, AKS (Azure Kubernetes Service).
 
 {% collapsible %}
 
-Get the latest available Kubernetes version in your preferred region into a bash variable. Replace `<region>` with the region of your choosing, for example `eastus`.
+Get the latest available Kubernetes version in your preferred region and store it in a bash variable. Replace `<region>` with the region of your choosing, for example `eastus`.
 
 ```sh
 version=$(az aks get-versions -l <region> --query 'orchestrators[-1].orchestratorVersion' -o tsv)
+```
+
+The above command lists all versions of Kubernetes available to deploy using AKS. Newer Kubernetes releases are typically made available in "Preview". To get the latest non-preview version of Kubernetes, use the following command instead
+
+```sh
+version=$(az aks get-versions -l <region> --query 'orchestrators[?isPreview == null].[orchestratorVersion][-1]' -o tsv)
 ```
 
 {% endcollapsible %}
@@ -35,15 +41,36 @@ az group create --name <resource-group> --location <region>
 
 #### Create the AKS cluster
 
-> **Note** You can create AKS clusters that support the [cluster autoscaler](https://docs.microsoft.com/en-us/azure/aks/cluster-autoscaler#about-the-cluster-autoscaler). However, please note that the AKS cluster autoscaler is a preview feature, and enabling it is a more involved process. AKS preview features are self-service and opt-in. Previews are provided to gather feedback and bugs from our community. However, they are not supported by Azure technical support. If you create a cluster, or add these features to existing clusters, that cluster is unsupported until the feature is no longer in preview and graduates to general availability (GA).
+**Task Hints**
+* It's recommended to use the Azure CLI and the `az aks create` command to deploy your cluster. Refer to the docs linked in the Resources section, or run `az aks create -h` for details
+* The size and number of nodes in your cluster is not critical but two or more nodes of type `Standard_DS2_v2` or larger is recommended
 
-##### **Option 1:** Create an AKS cluster without the cluster autoscaler
+> **Note** You can create AKS clusters that support the [cluster autoscaler](https://docs.microsoft.com/en-us/azure/aks/cluster-autoscaler#about-the-cluster-autoscaler).
 
-> **Note** If you're using the provided lab environment, you'll not be able to create the Log Analytics workspace required to enable monitoring while creating the cluster from the Azure Portal unless you manually create the workspace in your assigned resource group.
+##### **Option 1:** Create an AKS cluster without the cluster autoscaler (recommended)
 
+Create AKS using the latest version (if using the provided lab environment)
+  
+{% collapsible %}
+  
+> **Note** If you're using the provided lab environment, you'll not be able to create the Log Analytics workspace required to enable monitoring while creating the cluster from the Azure Portal unless you manually create the workspace in your assigned resource group. Additionally, if you're running this on an Azure Pass, please add `--load-balancer-sku basic` to the flags, as the Azure Pass only supports the basic Azure Load Balancer. Additionaly, please pass in the service prinipal and secret provided.
+
+  ```sh
+  az aks create --resource-group <resource-group> \
+    --name <unique-aks-cluster-name> \
+    --location <region> \
+    --kubernetes-version $version \
+    --generate-ssh-keys \
+    --load-balancer-sku basic \
+    --service-principal <APP_ID> \
+    --client-secret <APP_SECRET>
+  ```
+
+  {% endcollapsible %}
+  
+  Create AKS using the latest version (on your own subscription)
+  
   {% collapsible %}
-
-  Create AKS using the latest version
 
   ```sh
   az aks create --resource-group <resource-group> \
@@ -55,39 +82,18 @@ az group create --name <resource-group> --location <region>
 
   {% endcollapsible %}
 
-##### **Option 2 (*Preview*):** Create an AKS cluster with the cluster autoscaler
+##### **Option 2 ** Create an AKS cluster with the cluster autoscaler
 
-> **Note** This will not work in the lab environment. You can only do this on a subscription where you have access to enable preview features.
-
-  {% collapsible %}
  
-  AKS clusters that support the cluster autoscaler must use virtual machine scale sets and run Kubernetes version *1.12.4* or later. This scale set support is in preview. To opt in and create clusters that use scale sets, first install the *aks-preview* Azure CLI extension using the `az extension add` command, as shown in the following example:
+  AKS clusters create worker nodes in Virtual Machine Scale Sets by default. The number of nodes can be easily scaled up and down as required. AKS also supports the Kubernetes Cluster Autoscaler, which will automatically scale the number of nodes on demand to meet current system requirements. 
+  
+  To enable the Cluster Autoscaler, use the `az aks create` command specifying the `--enable-cluster-autoscaler` parameter, and a node `--min-count` and `--max-count`.
+  
+Create AKS using the latest version (if using the provided lab environment)
 
-  ```sh
-  az extension add --name aks-preview
-  ```
+{% collapsible %}
 
-  To create an AKS cluster that uses scale sets, you must also enable a feature flag on your subscription. To register the *VMSSPreview* feature flag, use the `az feature register` command as shown in the following example:
-
-  ```sh
-  az feature register --name VMSSPreview --namespace Microsoft.ContainerService
-  ```
-
-  It takes a few minutes for the status to show *Registered*. You can check on the registration status using the `az feature list` command:
-
-  ```sh
-  az feature list -o table --query "[?contains(name, 'Microsoft.ContainerService/VMSSPreview')].{Name:name,State:properties.state}"
-  ```
-
-  When ready, refresh the registration of the *Microsoft.ContainerService* resource provider using the `az provider register` command:
-
-  ```sh
-  az provider register --namespace Microsoft.ContainerService
-  ```
-
-  Use the `az aks create` command specifying the `--enable-cluster-autoscaler` parameter, and a node `--min-count` and `--max-count`.
-
-  > **Note** During preview, you can't set a higher minimum node count than is currently set for the cluster. For example, if you currently have min count set to *1*, you can't update the min count to *3*.
+> **Note** If you're running this on an Azure Pass or the provided lab environment, please add `--load-balancer-sku basic` to the flags, as the Azure Pass only supports the basic Azure Load Balancer. Additionaly, please pass in the service prinipal and secret provided.
 
    ```sh
   az aks create --resource-group <resource-group> \
@@ -95,7 +101,28 @@ az group create --name <resource-group> --location <region>
     --location <region> \
     --kubernetes-version $version \
     --generate-ssh-keys \
-    --enable-vmss \
+    --vm-set-type VirtualMachineScaleSets \
+    --enable-cluster-autoscaler \
+    --min-count 1 \
+    --max-count 3 \
+    --load-balancer-sku basic \
+    --service-principal <APP_ID> \
+    --client-secret <APP_SECRET>
+  ```
+
+{% endcollapsible %}
+  
+Create AKS using the latest version (on your own subscription)
+
+{% collapsible %}
+
+   ```sh
+  az aks create --resource-group <resource-group> \
+    --name <unique-aks-cluster-name> \
+    --location <region> \
+    --kubernetes-version $version \
+    --generate-ssh-keys \
+    --vm-set-type VirtualMachineScaleSets \
     --enable-cluster-autoscaler \
     --min-count 1 \
     --max-count 3
@@ -104,6 +131,18 @@ az group create --name <resource-group> --location <region>
   {% endcollapsible %}
 
 #### Ensure you can connect to the cluster using `kubectl`
+
+**Task Hints**
+* `kubectl` is the main command line tool you will be using for working with Kubernetes and AKS. It is already installed in the Azure Cloud Shell
+* Refer to the AKS docs which includes [a guide for connecting kubectl to your cluster](https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough#connect-to-the-cluster) (Note. using the cloud shell you can skip the `install-cli` step).
+* A good sanity check is listing all the nodes in your cluster `kubectl get nodes`.
+* [This is a good cheat sheet](https://linuxacademy.com/site-content/uploads/2019/04/Kubernetes-Cheat-Sheet_07182019.pdf) for kubectl.
+* If you run kubectl in PowerShell ISE , you can also define aliases :
+```sh
+function k([Parameter(ValueFromRemainingArguments = $true)]$params) { & kubectl $params }
+function kubectl([Parameter(ValueFromRemainingArguments = $true)]$params) { Write-Output "> kubectl $(@($params | ForEach-Object {$_}) -join ' ')"; & kubectl.exe $params; }
+function k([Parameter(ValueFromRemainingArguments = $true)]$params) { Write-Output "> k $(@($params | ForEach-Object {$_}) -join ' ')"; & kubectl.exe $params; }
+```
 
 {% collapsible %}
 
@@ -127,3 +166,5 @@ kubectl get nodes
 > * <https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough>
 > * <https://docs.microsoft.com/en-us/cli/azure/aks?view=azure-cli-latest#az-aks-create>
 > * <https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough-portal>
+> * <https://docs.microsoft.com/en-us/azure/aks/kubernetes-walkthrough#connect-to-the-cluster>
+> * <https://linuxacademy.com/site-content/uploads/2019/04/Kubernetes-Cheat-Sheet_07182019.pdf>

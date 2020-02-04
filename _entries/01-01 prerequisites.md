@@ -21,6 +21,7 @@ Please use your username and password to login to <https://portal.azure.com>.
 Also please authenticate your Azure CLI by running the command below on your machine and following the instructions.
 
 ```sh
+az account show
 az login
 ```
 
@@ -67,12 +68,8 @@ You should now have access to the Azure Cloud Shell
 
 {% endcollapsible %}
 
-#### Uploading and editing files in Azure Cloud Shell
-
-{% collapsible %}
+#### Tips for uploading and editing files in Azure Cloud Shell
 
 - You can use `code <file you want to edit>` in Azure Cloud Shell to open the built-in text editor.
 - You can upload files to the Azure Cloud Shell by dragging and dropping them
 - You can also do a `curl -o filename.ext https://file-url/filename.ext` to download a file from the internet.
-
-{% endcollapsible %}

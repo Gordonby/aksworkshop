@@ -7,6 +7,39 @@ is-parent: yes
 
 All notable changes to this workshop will be documented in this file.
 
+## 2020-01-31
+
+- Numerous updates to fix typos, add extra details to some sections and various other fixes
+- Added command to obtain latest non-preview version of Kubernetes
+- Added solution and details for enabling TLS on `captureorder`
+- Removed Proctor Notes section as it was outdated and no longer used
+
+## 2019-12-03
+
+### Changed
+
+- Updated instructions for Helm 3.
+
+## 2019-11-13
+
+### Changed
+
+- Removed preview references to the AKS Cluster Auto Scaler now GA.
+
+## 2019-10-04
+
+### Changed
+
+- Updated AKS and ACR authentication instructions
+
+## 2019-10-10
+
+### Changed
+
+- Added "**Task Hints**" for each task with links and guidance to hopefully make the task achievable without clicking "toggle solution"
+- Added diagrams showing how the system should look after each part (section 2 only)
+- Changed ACR connection method using new `--attach-acr` command
+
 ## 2019-07-15
 
 ### Changed
